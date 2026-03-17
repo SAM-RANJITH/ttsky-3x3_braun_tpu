@@ -1,46 +1,102 @@
 ## How it works
 
-This project implements a Ground Penetrating Radar (GPR) digital signal processor using Verilog for the Tiny Tapeout ASIC platform.
+This project implements a 3×3 Tensor Processing Unit (TPU) using a systolic array architecture with Braun multipliers, designed for the Tiny Tapeout ASIC platform.
 
-The design processes incoming radar echo samples and detects potential underground objects based on signal strength. The processor uses a simple digital signal processing pipeline consisting of:
+The design performs matrix multiplication using a grid of interconnected Processing Elements (PEs). Each PE carries out a multiply-accumulate (MAC) operation, enabling parallel computation across the array.
 
-FIR filter to reduce noise in the incoming radar signal
+The architecture consists of:
 
-Envelope detector to extract the signal magnitude
+3×3 Systolic Array
+A network of 9 Processing Elements where data flows rhythmically across rows and columns.
 
-Peak detector to identify strong reflections that may indicate buried objects
+Braun Multiplier-Based PEs
+Each PE multiplies input data and accumulates partial results efficiently.
 
-Radar samples are provided through the dedicated input pins. On every clock cycle, the processor filters the signal and evaluates whether the reflected signal exceeds a predefined threshold. If the threshold is exceeded, the system asserts an object detection flag on the output pins.
+Delay Alignment (Delay Cells)
+Input data is delayed appropriately to ensure correct timing and synchronization across the systolic array.
 
-This design demonstrates a simplified version of digital radar signal processing and shows how DSP concepts can be implemented in a small ASIC design suitable for the Tiny Tapeout platform.
+Control Unit (FSM)
+Manages different phases of operation:
+
+Load Matrix A
+
+Load Matrix B
+
+Compute
+
+Output results
+
+Input Loader
+Streams input data into the systolic array in a sequential manner.
+
+Output Multiplexer & Serializer
+Collects computed results and outputs them sequentially through limited I/O pins.
+
+## Operation Flow
+
+Input data is provided serially through the ui_in[7:0] pins.
+
+The control unit loads matrix elements into internal registers.
+
+Data flows through the systolic array:
+
+A values move left → right
+
+B values move top → bottom
+
+Each PE performs multiply-accumulate operations.
+
+Results propagate through the array and are stored internally.
+
+The output multiplexer streams results (c00 → c22) sequentially.
+
+This design demonstrates how parallel matrix computation can be implemented efficiently in hardware using a systolic architecture within strict area constraints.
 
 ## How to test
 
-1. Apply a clock signal to the design.
+Apply a clock signal to the design.
 
-Provide radar echo sample values through the ui_in[7:0] input pins.
+Assert reset (rst_n = 0 → 1).
 
-Enable the design by setting the enable (ena) signal high.
+Enable the design by setting:
 
-The processor will filter the incoming samples and compute the signal envelope.
+ena = 1
 
-When the processed signal exceeds the detection threshold, the object detection flag will be asserted on the output.
+Provide input data through:
 
-Outputs:
+ui_in[7:0]
 
-uo_out[7:1] – processed radar signal (envelope output)
+Example sequence:
 
-uo_out[0] – object detection indicator
+First 3 cycles → Matrix A
 
-The functionality can also be verified through simulation using the provided Verilog testbench.
+Next 3 cycles → Matrix B
 
+Wait for computation to complete (few cycles due to pipeline + delay).
+
+Observe outputs:
+
+## Outputs
+
+uo_out[7:0] → Result data (streamed)
+
+uio_out[3:0] → Output index (0 to 8)
+
+uio_out[4] → Done signal
+
+uio_out[5] → Valid signal
+
+## Output Behavior
+
+Results are streamed in order:
+
+c00 → c01 → c02 → c10 → c11 → c12 → c20 → c21 → c22
 ## External hardware
 
-No external hardware is required. The design can be tested using simulation or through the Tiny Tapeout test infrastructure.<!---
+No external hardware is required.
 
-This file is used to generate your project datasheet. Please fill in the information below and delete any unused
-sections.
+The design can be tested using:
 
-You can also include images in this folder and reference them in the markdown. Each image must be less than
-512 kb in size, and the combined size of all images must be less than 1 MB.
+Verilog simulation (testbench or cocotb)
 
+Tiny Tapeout test infrastructure
