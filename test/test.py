@@ -19,6 +19,7 @@ async def test_tpu_3x3(dut):
     dut.uio_in.value = 0
     dut.rst_n.value = 0
 
+    # keep reset active for a few cycles
     await ClockCycles(dut.clk, 5)
 
     dut.rst_n.value = 1
@@ -66,19 +67,36 @@ async def test_tpu_3x3(dut):
     # Wait for COMPUTE + DELAY
     # -------------------------
     dut._log.info("Waiting for computation...")
-    await ClockCycles(dut.clk, 15)
+    # extra cycles to let gate-level logic settle
+    await ClockCycles(dut.clk, 25)
 
     # -------------------------
     # READ OUTPUT STREAM
     # -------------------------
     dut._log.info("Reading output stream (9 values expected)")
 
+    results = {}
+
     for i in range(9):
         await ClockCycles(dut.clk, 1)
 
-        result = int(dut.uo_out.value)
-        index  = int(dut.uio_out.value) & 0xF
+        val_out = dut.uo_out.value
+        val_idx = dut.uio_out.value
 
+        # If there are X/Z, fail with a clear message instead of ValueError
+        if (not val_out.is_resolvable) or (not val_idx.is_resolvable):
+            dut._log.error(
+                f"X/Z on outputs at cycle {i}: "
+                f"uo_out={val_out.binstr}, uio_out={val_idx.binstr}"
+            )
+            raise AssertionError("Output contains X/Z, check reset/logic or timing")
+
+        result = val_out.integer
+        index = val_idx.integer & 0xF
+
+        results[index] = result
         dut._log.info(f"Output[{index}] = {result}")
 
+    # Optional: simple sanity check, e.g. we got 9 unique indices
+    assert len(results) == 9, f"Expected 9 outputs, got {len(results)}"
     dut._log.info("✅ TPU Test Completed")
