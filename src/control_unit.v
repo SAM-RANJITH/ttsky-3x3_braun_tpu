@@ -1,44 +1,48 @@
-module control_unit (
+module control_unit(
     input clk,
     input rst,
     input start,
-
-    output reg load_A,
-    output reg load_B,
+    output reg load,
     output reg compute,
-    output reg output_phase,
-    output reg done
+    output reg output_en
 );
 
-    reg [2:0] state, next_state;
+reg [3:0] state, count;
 
-    localparam IDLE=0, LOAD_A=1, LOAD_B=2, COMPUTE=3, OUTPUT=4, DONE=5;
+localparam IDLE=0, LOAD_A=1, LOAD_B=2, COMPUTE=3, OUTPUT=4;
 
-    always @(posedge clk or posedge rst)
-        if (rst) state <= IDLE;
-        else state <= next_state;
-
-    always @(*) begin
+always @(posedge clk or posedge rst) begin
+    if (rst) begin
+        state <= IDLE;
+        count <= 0;
+    end else begin
         case(state)
-            IDLE: next_state = start ? LOAD_A : IDLE;
-            LOAD_A: next_state = LOAD_B;
-            LOAD_B: next_state = COMPUTE;
-            COMPUTE: next_state = OUTPUT;
-            OUTPUT: next_state = DONE;
-            DONE: next_state = IDLE;
-            default: next_state = IDLE;
+            IDLE: if(start) state <= LOAD_A;
+
+            LOAD_A: begin
+                if(count==2) begin state <= LOAD_B; count <= 0; end
+                else count <= count + 1;
+            end
+
+            LOAD_B: begin
+                if(count==2) begin state <= COMPUTE; count <= 0; end
+                else count <= count + 1;
+            end
+
+            COMPUTE: begin
+                if(count==8) begin state <= OUTPUT; count <= 0; end
+                else count <= count + 1;
+            end
+
+            OUTPUT: state <= IDLE;
         endcase
     end
+end
 
-    always @(*) begin
-        load_A=0; load_B=0; compute=0; output_phase=0; done=0;
+always @(*) begin
+    load = (state==LOAD_A)||(state==LOAD_B);
+    compute = (state==COMPUTE);
+    output_en = (state==OUTPUT);
+end
 
-        case(state)
-            LOAD_A: load_A=1;
-            LOAD_B: load_B=1;
-            COMPUTE: compute=1;
-            OUTPUT: output_phase=1;
-            DONE: done=1;
-        endcase
-    end
 endmodule
