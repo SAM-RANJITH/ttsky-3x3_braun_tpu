@@ -1,73 +1,82 @@
-`default_nettype none
-`timescale 1ns / 1ps
+`timescale 1ns/1ps
 
-module tb ();
+module tb;
 
-  // Dump waveform
-  initial begin
-    $dumpfile("tb.fst");
-    $dumpvars(0, tb);
-  end
+    reg clk;
+    reg rst_n;
+    reg ena;
 
-  // Inputs
-  reg clk = 0;
-  reg rst_n = 0;
-  reg ena = 1;
-  reg [7:0] ui_in = 0;
-  reg [7:0] uio_in = 0;
+    reg [7:0] ui_in;
+    reg [7:0] uio_in;
 
-  // Outputs
-  wire [7:0] uo_out;
-  wire [7:0] uio_out;
-  wire [7:0] uio_oe;
+    wire [7:0] uo_out;
+    wire [7:0] uio_out;
+    wire [7:0] uio_oe;
 
-`ifdef GL_TEST
-  wire VPWR = 1'b1;
-  wire VGND = 1'b0;
-`endif
+    // DUT
+    tt_um_tpu_braun dut (
+        .ui_in(ui_in),
+        .uo_out(uo_out),
 
-  // Clock generation
-  always #5 clk = ~clk;
+        .uio_in(uio_in),
+        .uio_out(uio_out),
+        .uio_oe(uio_oe),
 
-  // DUT
-  tt_um_gpr_processor  user_project (
+        .clk(clk),
+        .rst_n(rst_n),
+        .ena(ena)
+    );
 
-`ifdef GL_TEST
-      .VPWR(VPWR),
-      .VGND(VGND),
-`endif
+    // Clock generation
+    initial begin
+        clk = 0;
+        forever #5 clk = ~clk;  // 100MHz
+    end
 
-      .ui_in  (ui_in),
-      .uo_out (uo_out),
-      .uio_in (uio_in),
-      .uio_out(uio_out),
-      .uio_oe (uio_oe),
-      .ena    (ena),
-      .clk    (clk),
-      .rst_n  (rst_n)
-  );
+    // Stimulus
+    initial begin
+        // Initialize
+        rst_n = 0;
+        ena   = 0;
+        ui_in = 0;
+        uio_in = 0;
 
-  // Test sequence
-  initial begin
+        #20;
+        rst_n = 1;
 
-    // Reset
-    #20;
-    rst_n = 1;
+        // Start operation
+        #10;
+        ena = 1;
 
-    // Example stimulus
-    ui_in = 8'hAA;
-    #20;
+        // -------------------------
+        // Load Matrix A (3 values)
+        // -------------------------
+        // A = [2,3,4]
+        #10 ui_in = 8'd2;
+        #10 ui_in = 8'd3;
+        #10 ui_in = 8'd4;
 
-    ui_in = 8'h55;
-    #20;
+        // -------------------------
+        // Load Matrix B (3 values)
+        // -------------------------
+        // B = [1,2,3]
+        #10 ui_in = 8'd1;
+        #10 ui_in = 8'd2;
+        #10 ui_in = 8'd3;
 
-    ui_in = 8'hFF;
-    #20;
+        // Stop loading
+        #10 ena = 0;
 
-    // End simulation
-    #100;
-    $finish;
+        // Wait for computation + output
+        #200;
 
-  end
+        $finish;
+    end
+
+    // Monitor outputs
+    initial begin
+        $display("Time\tOutput\tIndex");
+        $monitor("%0t\t%d\t%d", $time, uo_out, uio_out[3:0]);
+    end
 
 endmodule
