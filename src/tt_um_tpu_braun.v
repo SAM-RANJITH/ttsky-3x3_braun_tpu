@@ -1,60 +1,44 @@
-module tt_um_tpu_braun (
-    input  wire [7:0] ui_in,
-    output wire [7:0] uo_out,
-
-    input  wire [7:0] uio_in,
-    output wire [7:0] uio_out,
-    output wire [7:0] uio_oe,
-
-    input  wire clk,
-    input  wire rst_n,
-    input  wire ena
+module tt_um_tpu_braun(
+    input [7:0] ui_in,
+    output [7:0] uo_out,
+    input [7:0] uio_in,
+    output [7:0] uio_out,
+    output [7:0] uio_oe,
+    input clk,
+    input rst_n,
+    input ena
 );
 
-    wire rst = ~rst_n;
+wire rst = ~rst_n;
 
-    wire load_A, load_B, compute, output_phase, done;
+wire load, compute, output_en;
 
-    control_unit ctrl (
-        .clk(clk), .rst(rst), .start(ena),
-        .load_A(load_A), .load_B(load_B),
-        .compute(compute), .output_phase(output_phase), .done(done)
-    );
+control_unit CU(
+    .clk(clk), .rst(rst), .start(ena),
+    .load(load), .compute(compute), .output_en(output_en)
+);
 
-    wire [7:0] a0,a1,a2,b0,b1,b2;
+wire [15:0] c00,c01,c02,c10,c11,c12,c20,c21,c22;
 
-    input_loader loader (
-        .clk(clk), .rst(rst),
-        .data_in(ui_in),
-        .load_A(load_A), .load_B(load_B),
-        .a0(a0), .a1(a1), .a2(a2),
-        .b0(b0), .b1(b1), .b2(b2)
-    );
+systolic_array_3x3 SA(
+    .clk(clk), .rst(rst),
+    .a_in(ui_in), .b_in(ui_in),
+    .c00(c00),.c01(c01),.c02(c02),
+    .c10(c10),.c11(c11),.c12(c12),
+    .c20(c20),.c21(c21),.c22(c22)
+);
 
-    wire [15:0] c00,c01,c02,c10,c11,c12,c20,c21,c22;
+wire [3:0] index;
 
-    systolic_array_3x3 core (
-        .clk(clk), .rst(rst),
-        .a_in0(a0), .a_in1(a1), .a_in2(a2),
-        .b_in0(b0), .b_in1(b1), .b_in2(b2),
-        .c00(c00), .c01(c01), .c02(c02),
-        .c10(c10), .c11(c11), .c12(c12),
-        .c20(c20), .c21(c21), .c22(c22)
-    );
+output_mux OM(
+    .clk(clk), .rst(rst), .enable(output_en),
+    .c00(c00),.c01(c01),.c02(c02),
+    .c10(c10),.c11(c11),.c12(c12),
+    .c20(c20),.c21(c21),.c22(c22),
+    .data_out(uo_out), .index(index)
+);
 
-    wire [15:0] mux_out;
-    wire [3:0] index;
-
-    output_mux mux (
-        .clk(clk), .rst(rst), .enable(output_phase),
-        .c00(c00), .c01(c01), .c02(c02),
-        .c10(c10), .c11(c11), .c12(c12),
-        .c20(c20), .c21(c21), .c22(c22),
-        .data_out(mux_out), .index(index)
-    );
-
-    assign uo_out = mux_out[7:0];
-    assign uio_out = {4'd0,index};
-    assign uio_oe  = 8'hFF;
+assign uio_out = {4'b0,index};
+assign uio_oe = 8'hFF;
 
 endmodule
