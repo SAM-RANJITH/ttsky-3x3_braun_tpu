@@ -1,56 +1,53 @@
 # Tiny Tapeout project information
 project:
-  title:        "GPR Digital Signal Processor"
+  title:        "3x3 Braun TPU Systolic Array"
   author:       "Sam Ranjith"
-  discord:      "" 
-  description:  "Ground Penetrating Radar digital processor using FIR filtering and peak detection"
+  discord:      ""
+  description:  "A 3x3 systolic array based TPU using Braun multipliers with delay alignment for matrix multiplication"
   language:     "Verilog"
   clock_hz:     50000000
 
-  # Tile size
-  tiles: "1x1"
+  tiles: "2x2"
 
-  # Top module name
-  top_module:  "tt_um_gpr_processor"
+  top_module:  "tt_um_tpu_braun"
 
-  # Source files
   source_files:
-    - "tt_um_gpr_processor.v"
-    - "fir_filter.v"
-    - "envelope_detector.v"
-    - "peak_detector.v"
+    - "tt_um_tpu_braun.v"
+    - "systolic_array_3x3.v"
+    - "pe_braun.v"
+    - "braun_multiplier.v"
+    - "control_unit.v"
+    - "input_loader.v"
+    - "output_mux.v"
+    - "delay_cell.v"
 
 # Pinout description
 pinout:
-  # Inputs
-  ui[0]: "Radar sample bit0"
-  ui[1]: "Radar sample bit1"
-  ui[2]: "Radar sample bit2"
-  ui[3]: "Radar sample bit3"
-  ui[4]: "Radar sample bit4"
-  ui[5]: "Radar sample bit5"
-  ui[6]: "Radar sample bit6"
-  ui[7]: "Radar sample bit7"
+  ui[0]: "Data input bit0"
+  ui[1]: "Data input bit1"
+  ui[2]: "Data input bit2"
+  ui[3]: "Data input bit3"
+  ui[4]: "Data input bit4"
+  ui[5]: "Data input bit5"
+  ui[6]: "Data input bit6"
+  ui[7]: "Data input bit7"
 
-  # Outputs
-  uo[0]: "Object detected flag"
-  uo[1]: "Processed radar signal bit1"
-  uo[2]: "Processed radar signal bit2"
-  uo[3]: "Processed radar signal bit3"
-  uo[4]: "Processed radar signal bit4"
-  uo[5]: "Processed radar signal bit5"
-  uo[6]: "Processed radar signal bit6"
-  uo[7]: "Processed radar signal bit7"
+  uo[0]: "Result output bit0"
+  uo[1]: "Result output bit1"
+  uo[2]: "Result output bit2"
+  uo[3]: "Result output bit3"
+  uo[4]: "Result output bit4"
+  uo[5]: "Result output bit5"
+  uo[6]: "Result output bit6"
+  uo[7]: "Result output bit7"
 
-  # Bidirectional pins
-  uio[0]: ""
-  uio[1]: ""
-  uio[2]: ""
-  uio[3]: ""
-  uio[4]: ""
-  uio[5]: ""
+  uio[0]: "Output index bit0"
+  uio[1]: "Output index bit1"
+  uio[2]: "Output index bit2"
+  uio[3]: "Output index bit3"
+  uio[4]: "Done signal"
+  uio[5]: "Valid output"
   uio[6]: ""
   uio[7]: ""
 
-# Do not change
 yaml_version: 6
