@@ -25,47 +25,107 @@ module tb;
         .ena(ena)
     );
 
-    // Clock generation (20ns period = 50MHz)
+    // -------------------------
+    // Clock (50 MHz)
+    // -------------------------
     initial clk = 0;
     always #10 clk = ~clk;
 
-    // Waveform dump
+    // -------------------------
+    // Waveform
+    // -------------------------
     initial begin
         $dumpfile("tb.fst");
         $dumpvars(0, tb);
     end
 
+    // -------------------------
+    // Task: Apply one vector
+    // -------------------------
+    task apply_vector;
+        input [7:0] val_ui;
+        input [7:0] val_uio;
+        begin
+            ui_in  = val_ui;
+            uio_in = val_uio;
+            @(posedge clk);
+        end
+    endtask
+
+    // -------------------------
     // Stimulus
+    // -------------------------
     initial begin
-        // Initialize
+        // Init
         rst_n  = 0;
         ena    = 0;
-        ui_in  = 8'd0;
-        uio_in = 8'd0;
+        ui_in  = 0;
+        uio_in = 0;
 
-        // Apply reset
-        #50;
+        // Reset
+        repeat (5) @(posedge clk);
         rst_n = 1;
-        ena   = 1;
 
-        // ---- Test Case 1 ----
-        // Example input (change based on your TPU mapping)
-        #20;
-        ui_in = 8'h12;
-        uio_in = 8'h34;
+        // Enable
+        repeat (2) @(posedge clk);
+        ena = 1;
 
-        // ---- Test Case 2 ----
-        #40;
-        ui_in = 8'hAA;
-        uio_in = 8'h55;
+        // =========================
+        // TEST VECTOR SET 1
+        // =========================
+        $display("---- TEST 1 ----");
 
-        // ---- Test Case 3 ----
-        #40;
-        ui_in = 8'h0F;
-        uio_in = 8'hF0;
+        apply_vector(8'd2,  8'd0);
+        apply_vector(8'd3,  8'd0);
+        apply_vector(8'd4,  8'd0);
 
-        // Wait and finish
-        #100;
+        apply_vector(8'd1,  8'd0);
+        apply_vector(8'd2,  8'd0);
+        apply_vector(8'd3,  8'd0);
+
+        ena = 0;
+
+        // Wait for compute
+        repeat (30) @(posedge clk);
+
+        // =========================
+        // READ OUTPUTS
+        // =========================
+        $display("---- OUTPUT STREAM ----");
+
+        repeat (15) begin
+            @(posedge clk);
+            $display("Time=%0t | OUT=%0d | IDX=%0d",
+                     $time, uo_out, uio_out);
+        end
+
+        // =========================
+        // TEST VECTOR SET 2
+        // =========================
+        ena = 1;
+
+        $display("---- TEST 2 ----");
+
+        apply_vector(8'd5, 8'd0);
+        apply_vector(8'd6, 8'd0);
+        apply_vector(8'd7, 8'd0);
+
+        apply_vector(8'd1, 8'd0);
+        apply_vector(8'd1, 8'd0);
+        apply_vector(8'd1, 8'd0);
+
+        ena = 0;
+
+        repeat (30) @(posedge clk);
+
+        repeat (15) begin
+            @(posedge clk);
+            $display("Time=%0t | OUT=%0d | IDX=%0d",
+                     $time, uo_out, uio_out);
+        end
+
+        // Finish
+        #50;
         $finish;
     end
 
