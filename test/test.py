@@ -3,11 +3,16 @@ from cocotb.clock import Clock
 from cocotb.triggers import ClockCycles
 
 
+def golden_model(A, B):
+    """Simple 1D multiply (adjust if 3x3 full matrix)"""
+    return [a * b for a, b in zip(A, B)]
+
+
 @cocotb.test()
 async def test_tpu_3x3(dut):
-    dut._log.info("🚀 Starting 3x3 TPU Test")
+    dut._log.info("🚀 Starting TPU Test")
 
-    # Clock (50MHz → 20ns)
+    # Clock
     clock = Clock(dut.clk, 20, unit="ns")
     cocotb.start_soon(clock.start())
 
@@ -25,70 +30,67 @@ async def test_tpu_3x3(dut):
     await ClockCycles(dut.clk, 2)
 
     # -------------------------
-    # Start TPU
+    # Input Data
+    # -------------------------
+    A = [2, 3, 4]
+    B = [1, 2, 3]
+
+    expected = golden_model(A, B)
+    dut._log.info(f"Expected: {expected}")
+
+    # -------------------------
+    # LOAD PHASE
     # -------------------------
     dut.ena.value = 1
-
-    # -------------------------
-    # LOAD MATRIX A (3 cycles)
-    # -------------------------
-    dut._log.info("Loading Matrix A")
-
-    A = [2, 3, 4]
+    dut._log.info("Loading A")
 
     for val in A:
         dut.ui_in.value = val
         await ClockCycles(dut.clk, 1)
 
-    # -------------------------
-    # LOAD MATRIX B (3 cycles)
-    # -------------------------
-    dut._log.info("Loading Matrix B")
-
-    B = [1, 2, 3]
+    dut._log.info("Loading B")
 
     for val in B:
         dut.ui_in.value = val
         await ClockCycles(dut.clk, 1)
 
-    # Stop loading
     dut.ena.value = 0
 
     # -------------------------
-    # Wait for COMPUTE
+    # COMPUTE WAIT
     # -------------------------
-    dut._log.info("Waiting for computation...")
     await ClockCycles(dut.clk, 25)
 
     # -------------------------
-    # READ OUTPUT STREAM
+    # OUTPUT READ
     # -------------------------
-    dut._log.info("Reading output stream")
-
     outputs = {}
 
-    for i in range(12):  # extra cycles safe
+    for _ in range(12):
         await ClockCycles(dut.clk, 1)
 
-        val_out = dut.uo_out.value
-        val_idx = dut.uio_out.value
+        if not dut.uo_out.value.is_resolvable:
+            raise Exception("❌ uo_out has X/Z")
 
-        if (not val_out.is_resolvable) or (not val_idx.is_resolvable):
-            dut._log.warning(
-                f"X/Z detected: uo_out={val_out.binstr}, uio_out={val_idx.binstr}"
-            )
-            continue
+        if not dut.uio_out.value.is_resolvable:
+            raise Exception("❌ uio_out has X/Z")
 
-        result = val_out.to_unsigned()
-        index = val_idx.to_unsigned() & 0xF
+        result = int(dut.uo_out.value)
+        index = int(dut.uio_out.value) & 0xF
 
         outputs[index] = result
         dut._log.info(f"Output[{index}] = {result}")
 
     # -------------------------
-    # Optional Check (Basic)
+    # CHECK RESULTS
     # -------------------------
-    dut._log.info(f"Final Outputs: {outputs}")
+    dut._log.info("Checking results...")
 
-    # No strict assert → avoids failure during development
-    dut._log.info("✅ TPU Test Completed Successfully")
+    for i, exp in enumerate(expected):
+        if i in outputs:
+            assert outputs[i] == exp, \
+                f"Mismatch at {i}: got {outputs[i]}, expected {exp}"
+        else:
+            raise Exception(f"Missing output index {i}")
+
+    dut._log.info("✅ TEST PASSED")
